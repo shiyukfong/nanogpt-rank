@@ -29,7 +29,7 @@ We measure the **effective rank** of the input activation covariance (or gradien
 
 At predefined iterations the effective rank is computed via eigenvalue decomposition and printed to stdout:
 
-$$\text{eff. rank} = \min\left\{ k : \frac{\sum_{i=1}^{k} \lambda_i}{\sum_{i} \lambda_i} \geq 0.95 \right\}$$
+$$\text{eff. rank} = \min\left\lbrace k : \frac{\sum_{i=1}^{k} \lambda_i}{\sum_{i} \lambda_i} \geq 0.95 \right\rbrace$$
 
 This rank is then parsed from the log file and plotted.
 
