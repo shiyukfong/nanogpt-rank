@@ -7,11 +7,6 @@ def parse_and_plot_ranks(log_filename, output_filename):
     # --- Configuration ---
     # Define the expected stages (Chunks)
     chunk_labels = ["Step 0 (Init)", "Step 1%", "Step 25%", "Step 50%", "Step 75%", "Step 100%"]
-    
-    # Structure of the log info
-    layers_per_pass = 12
-    components_per_layer = 4
-    lines_per_chunk = layers_per_pass * components_per_layer # 48 lines
 
     # --- 1. Read and Parse Log File ---
     data = []
@@ -25,10 +20,35 @@ def parse_and_plot_ranks(log_filename, output_filename):
     except FileNotFoundError:
         print(f"Error: Log file '{log_filename}' not found.")
         return
-        
 
     print(f"Found {len(lines)} rank entries.")
-    
+
+    # --- Infer chunk size from the first chunk ---
+    # The first chunk ends when any (layer, component) pair is seen a second time.
+    seen_combos = set()
+    lines_per_chunk = len(lines)  # fallback: treat everything as one chunk
+    for idx, line in enumerate(lines):
+        m = pattern.search(line)
+        if m:
+            combo = (int(m.group(1)), m.group(2))
+            if combo in seen_combos:
+                lines_per_chunk = idx
+                break
+            seen_combos.add(combo)
+
+    layers_per_pass = len({layer for layer, _ in seen_combos})
+    components_per_layer = len({comp for _, comp in seen_combos}) if layers_per_pass else 4
+    print(f"Inferred model depth: {layers_per_pass} layers, {components_per_layer} components/layer "
+          f"→ {lines_per_chunk} lines/chunk.")
+
+    n_chunks = len(lines) // lines_per_chunk
+    assert len(lines) % lines_per_chunk == 0, (
+        f"Unequal chunk sizes: total lines ({len(lines)}) is not evenly divisible "
+        f"by inferred chunk size ({lines_per_chunk}). "
+        f"Got {n_chunks} full chunks with {len(lines) % lines_per_chunk} leftover lines."
+    )
+    print(f"Number of chunks: {n_chunks}.")
+
     for i, line in enumerate(lines):
         match = pattern.search(line)
         if match:
@@ -127,6 +147,7 @@ def parse_and_plot_ranks(log_filename, output_filename):
 
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     plt.savefig(output_filename, bbox_inches='tight', dpi=300)
+    print(f"Plot saved to {output_filename}.")
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description="Parse the name of the log file to plot from command line")
