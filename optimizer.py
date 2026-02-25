@@ -120,28 +120,11 @@ class Muon(torch.optim.Optimizer):
                 if group['nesterov']:
                     g = g.add(buf, alpha=momentum)
 
-                use_manifold = (group['backend'] == 'manifold' or group['backend'] == 'submanifold')
-                if use_manifold:
-                    if 'O' not in state:
-                        state['O'] = torch.zeros_like(p.data)
-
                 if g.size(0) == 3 * g.size(1): # (nanoGPT specific) split grouped QKV parameters
-                    if use_manifold:
-                        O_full = state['O']
-                        chunks_g = g.split(g.size(1))
-                        chunks_O = O_full.split(g.size(1))
-                        g = torch.cat([zeropower_backend(g1, O=O1) for g1, O1 in zip(chunks_g, chunks_O)])
-                        state['O'] = (g) 
-                    else:
-                        g = torch.cat([zeropower_backend(g1, steps=group['backend_steps']) for g1 in g.split(g.size(1))])
+                    g = torch.cat([zeropower_backend(g1, steps=group['backend_steps']) for g1 in g.split(g.size(1))])
                     scale = g.size(1)**0.5
                 else:
-                    if use_manifold:
-                        g = zeropower_backend(g, O=state['O'])
-                        state['O'] = (g) 
-                        g = g[:p.data.size(0), :p.data.size(1)]
-                    else:
-                        g = zeropower_backend(g, steps=group['backend_steps'])
+                    g = zeropower_backend(g, steps=group['backend_steps'])
                     scale = max(g.size(0), g.size(1))**0.5 # scale to have update.square().mean() == 1
                 p.data.add_(g, alpha=-lr * scale)
         
@@ -224,7 +207,7 @@ class Muon_Rank(torch.optim.Optimizer):
                     B = x.size(0)
                     cov_x = (x.t() @ x) / B
 
-                    self._update_state(mod.weight, 'cov_x', cov_x.detach())
+                    self._update_state(mod.weight, 'cov', cov_x.detach())
             
             # Backward hook: do nothing
             @torch._dynamo.disable
